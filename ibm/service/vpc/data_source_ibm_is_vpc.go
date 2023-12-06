@@ -511,6 +511,7 @@ func vpcGetByNameOrId(d *schema.ResourceData, meta interface{}, name, id string)
 	if err != nil {
 		return err
 	}
+	log.Printf("[WARN] Checking for VPC using VPC URL: url==%s; vpc==%s", sess.GetServiceURL(), id)
 	flag := false
 	if id != "" {
 		getVpcsOptions := &vpcv1.GetVPCOptions{

@@ -216,9 +216,11 @@ func subnetGetByNameOrID(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	var subnet *vpcv1.Subnet
 	if v, ok := d.GetOk("identifier"); ok {
 		id := v.(string)
+		log.Printf("[WARN] Checking for subnet with VPC URL: url==%s; subnet==%s", sess.GetServiceURL(), id)
 		getSubnetOptions := &vpcv1.GetSubnetOptions{
 			ID: &id,
 		}
@@ -229,6 +231,7 @@ func subnetGetByNameOrID(d *schema.ResourceData, meta interface{}) error {
 		subnet = subnetinfo
 	} else if v, ok := d.GetOk(isSubnetName); ok {
 		name := v.(string)
+		log.Printf("[WARN] Checking for subnet with VPC URL: url==%s; subnet==%s", sess.GetServiceURL(), name)
 		start := ""
 		allrecs := []vpcv1.Subnet{}
 		getSubnetsListOptions := &vpcv1.ListSubnetsOptions{}

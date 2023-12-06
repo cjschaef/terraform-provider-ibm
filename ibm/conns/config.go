@@ -1835,10 +1835,13 @@ func (c *Config) ClientSession() (interface{}, error) {
 	// VPC Service
 	vpcurl := ContructEndpoint(fmt.Sprintf("%s.iaas", c.Region), fmt.Sprintf("%s/v1", cloudEndpoint))
 	if c.Visibility == "private" || c.Visibility == "public-and-private" {
+		log.Printf("[WARN] Configuring private VPC endpoint: visibility==%s", c.Visibility)
 		vpcurl = ContructEndpoint(fmt.Sprintf("%s.private.iaas", c.Region), fmt.Sprintf("%s/v1", cloudEndpoint))
 	}
 	if fileMap != nil && c.Visibility != "public-and-private" {
+		log.Printf("[WARN] Checking fileMap for VPC endpoint: visibility==%s; file==%s", c.Visibility, fileMap)
 		vpcurl = fileFallBack(fileMap, c.Visibility, "IBMCLOUD_IS_NG_API_ENDPOINT", c.Region, vpcurl)
+		log.Printf("[WARN] Configuring VPC endpoint from file: %s", vpcurl)
 	}
 	vpcoptions := &vpc.VpcV1Options{
 		URL:           EnvFallBack([]string{"IBMCLOUD_IS_NG_API_ENDPOINT"}, vpcurl),
@@ -1855,6 +1858,7 @@ func (c *Config) ClientSession() (interface{}, error) {
 		})
 	}
 	session.vpcAPI = vpcclient
+	log.Printf("[WARN] VPC Client configured with URL: %s", vpcclient.GetServiceURL())
 
 	vpcbetaoptions := &vpcbeta.VpcbetaV1Options{
 		URL:           EnvFallBack([]string{"IBMCLOUD_IS_NG_API_ENDPOINT"}, vpcurl),
