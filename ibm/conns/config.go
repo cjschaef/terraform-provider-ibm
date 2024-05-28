@@ -3567,6 +3567,27 @@ func EnvFallBack(envs []string, defaultValue string) string {
 	return defaultValue
 }
 
+func FileFallBack(endpointsFile, visibility, key, region, defaultValue string) string {
+	var fileMap map[string]interface{}
+	if f := EnvFallBack([]string{"IBMCLOUD_ENDPOINTS_FILE_PATH", "IC_ENDPOINTS_FILE_PATH"}, endpointsFile); f != "" {
+		jsonFile, err := os.Open(f)
+		if err != nil {
+			log.Fatalf("Unable to open Endpoints File %s", err)
+		}
+		defer jsonFile.Close()
+		bytes, err := ioutil.ReadAll(jsonFile)
+		if err != nil {
+			log.Fatalf("Unable to read Endpoints File %s", err)
+		}
+		err = json.Unmarshal([]byte(bytes), &fileMap)
+		if err != nil {
+			log.Fatalf("Unable to unmarshal Endpoints File %s", err)
+		}
+	}
+
+	return fileFallBack(fileMap, visibility, key, region, defaultValue)
+}
+
 func fileFallBack(fileMap map[string]interface{}, visibility, key, region, defaultValue string) string {
 	if val, ok := fileMap[key]; ok {
 		if v, ok := val.(map[string]interface{})[visibility]; ok {

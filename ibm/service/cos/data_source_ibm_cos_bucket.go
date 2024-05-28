@@ -621,7 +621,10 @@ func dataSourceIBMCosBucketRead(d *schema.ResourceData, meta interface{}) error 
 
 	}
 
-	apiEndpoint = conns.EnvFallBack([]string{"IBMCLOUD_COS_ENDPOINT"}, apiEndpoint)
+	apiEndpoint = conns.FileFallBack(rsConClient.Config.EndpointsFile, "private", "IBMCLOUD_COS_ENDPOINT", bucketRegion, apiEndpoint)
+	// HACK(cjschaef): IPI is configured to use either the Public endpoint or Direct endpoint. If an override was provided, set that as Direct endpoint.
+	directApiEndpoint = conns.FileFallBack(rsConClient.Config.EndpointsFile, "private", "IBMCLOUD_COS_ENDPOINT", bucketRegion, directApiEndpoint)
+
 	if apiEndpoint == "" {
 		return fmt.Errorf("[ERROR] The endpoint doesn't exists for given location %s and endpoint type %s", bucketRegion, endpointType)
 	}
@@ -711,11 +714,15 @@ func dataSourceIBMCosBucketRead(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
+	// We will use the session's config options (already loaded) if IBMCLOUD_COS_CONFIG_ENDPOINT was provided.
+	// Otherwise, we assume the user has provided the proper endpoint based on COS endpoint type
 	if endpointType == "private" {
-		sess.SetServiceURL("https://config.private.cloud-object-storage.cloud.ibm.com/v1")
+		url := conns.FileFallBack(rsConClient.Config.EndpointsFile, "private", "IBMCLOUD_COS_CONFIG_ENDPOINT", bucketRegion, "https://config.private.cloud-object-storage.cloud.ibm.com/v1")
+		sess.SetServiceURL(url)
 	}
 	if endpointType == "direct" {
-		sess.SetServiceURL("https://config.direct.cloud-object-storage.cloud.ibm.com/v1")
+		url := conns.FileFallBack(rsConClient.Config.EndpointsFile, "private", "IBMCLOUD_COS_CONFIG_ENDPOINT", bucketRegion, "https://config.direct.cloud-object-storage.cloud.ibm.com/v1")
+		sess.SetServiceURL(url)
 	}
 
 	if bucketType == "sl" {
