@@ -738,7 +738,7 @@ func resourceIBMCOSBucketUpdate(d *schema.ResourceData, meta interface{}) error 
 	var s3Conf *aws.Config
 	rsConClient, err := meta.(conns.ClientSession).BluemixSession()
 	if err != nil {
-		return err
+		return fmt.Errorf("failure retrieving client session during update: %w", err)
 	}
 	bucketName := parseBucketId(d.Id(), "bucketName")
 	serviceID := parseBucketId(d.Id(), "serviceID")
@@ -775,7 +775,7 @@ func resourceIBMCOSBucketUpdate(d *schema.ResourceData, meta interface{}) error 
 	authEndpoint, err := rsConClient.Config.EndpointLocator.IAMEndpoint()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failure retrieving IAM endpoint during update: %w", err)
 	}
 	authEndpointPath := fmt.Sprintf("%s%s", authEndpoint, "/identity/token")
 	apiKey := rsConClient.Config.BluemixAPIKey
@@ -838,7 +838,7 @@ func resourceIBMCOSBucketUpdate(d *schema.ResourceData, meta interface{}) error 
 			delarchive, _ := s3Client.DeleteBucketLifecycleRequest(DelInput)
 			err := delarchive.Send()
 			if err != nil {
-				return err
+				return fmt.Errorf("failure deleting bucket: %w", err)
 			}
 		}
 	}
@@ -932,7 +932,7 @@ func resourceIBMCOSBucketUpdate(d *schema.ResourceData, meta interface{}) error 
 
 	sess, err := meta.(conns.ClientSession).CosConfigV1API()
 	if err != nil {
-		return err
+		return fmt.Errorf("failure retrieving cos config session: %w", err)
 	}
 
 	if endpointType != "public" {
@@ -1082,7 +1082,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	var keyProtectFlag bool
 	rsConClient, err := meta.(conns.ClientSession).BluemixSession()
 	if err != nil {
-		return err
+		return fmt.Errorf("failure retrieving client session during read: %w", err)
 	}
 	bucketName := parseBucketId(d.Id(), "bucketName")
 	serviceID := parseBucketId(d.Id(), "serviceID")
@@ -1118,14 +1118,16 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	apiEndpoint = conns.EnvFallBack([]string{"IBMCLOUD_COS_ENDPOINT"}, apiEndpoint)
+	log.Printf("[INFO] using cos endpoint: %s", apiEndpoint)
 
 	authEndpoint, err := rsConClient.Config.EndpointLocator.IAMEndpoint()
 
 	if err != nil {
 
-		return err
+		return fmt.Errorf("failure retrieving IAM endpoint during read: %w", err)
 	}
 	authEndpointPath := fmt.Sprintf("%s%s", authEndpoint, "/identity/token")
+	log.Printf("[INFO] using iam auth endpoint: %s", authEndpointPath)
 	apiKey := rsConClient.Config.BluemixAPIKey
 	if apiKey != "" {
 		s3Conf = aws.NewConfig().WithEndpoint(apiEndpoint).WithCredentials(ibmiam.NewStaticCredentials(aws.NewConfig(), authEndpointPath, apiKey, serviceID)).WithS3ForcePathStyle(true)
@@ -1159,7 +1161,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	bucketOutput, err := s3Client.ListBucketsExtended(&s3.ListBucketsExtendedInput{})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed listing buckets: %w", err)
 	}
 
 	if apiType != "sl" {
@@ -1199,13 +1201,14 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	sess, err := meta.(conns.ClientSession).CosConfigV1API()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed retrieving vpc session: %w", err)
 	}
 	if endpointType != "public" {
 		// User is expected to define both private and direct url type under "private" in endpoints file since visibility type "direct" is not supported.
 		cosConfigURL := conns.FileFallBack(rsConClient.Config.EndpointsFile, "private", "IBMCLOUD_COS_CONFIG_ENDPOINT", bLocation, cosConfigUrls[endpointType])
 		cosConfigURL = conns.EnvFallBack([]string{"IBMCLOUD_COS_CONFIG_ENDPOINT"}, cosConfigURL)
 		sess.SetServiceURL(cosConfigURL)
+		log.Printf("[INFO] setting cos config endpoint: %s", cosConfigURL)
 	}
 
 	if apiType == "sl" {
@@ -1223,7 +1226,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	head, err := s3Client.HeadBucket(headInput)
 	if err != nil {
-		return err
+		return fmt.Errorf("failure retrieving head bucket: %w", err)
 	}
 	if head.IBMSSEKPEnabled != nil {
 		if *head.IBMSSEKPEnabled == true {
@@ -1271,7 +1274,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	lifecycleptr, err := s3Client.GetBucketLifecycleConfiguration(gInput)
 
 	if (err != nil && !strings.Contains(err.Error(), "NoSuchLifecycleConfiguration: The lifecycle configuration does not exist")) && (err != nil && bucketPtr != nil && bucketPtr.Firewall != nil && !strings.Contains(err.Error(), "AccessDenied: Access Denied")) {
-		return err
+		return fmt.Errorf("failure retrieving bucket lifecycle config: %w", err)
 	}
 	if lifecycleptr != nil {
 		archiveRules := flex.ArchiveRuleGet(lifecycleptr.Rules)
@@ -1299,7 +1302,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	retentionptr, err := s3Client.GetBucketProtectionConfiguration(retentionInput)
 
 	if err != nil && bucketPtr != nil && bucketPtr.Firewall != nil && !strings.Contains(err.Error(), "AccessDenied: Access Denied") {
-		return err
+		return fmt.Errorf("failure retrieving bucket protection configuration: %w", err)
 	}
 
 	if retentionptr != nil {
@@ -1317,7 +1320,7 @@ func resourceIBMCOSBucketRead(d *schema.ResourceData, meta interface{}) error {
 	versionPtr, err := s3Client.GetBucketVersioning(versionInput)
 
 	if err != nil && bucketPtr != nil && bucketPtr.Firewall != nil && !strings.Contains(err.Error(), "AccessDenied: Access Denied") {
-		return err
+		return fmt.Errorf("failure retrieving bucket versioning: %w", err)
 	}
 	if versionPtr != nil {
 		versioningData := flex.FlattenCosObejctVersioning(versionPtr)
@@ -1346,7 +1349,7 @@ func resourceIBMCOSBucketCreate(d *schema.ResourceData, meta interface{}) error 
 	var s3Conf *aws.Config
 	rsConClient, err := meta.(conns.ClientSession).BluemixSession()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed building session: %w", err)
 	}
 	bucketName := d.Get("bucket_name").(string)
 	storageClass := d.Get("storage_class").(string)
@@ -1446,7 +1449,7 @@ func resourceIBMCOSBucketCreate(d *schema.ResourceData, meta interface{}) error 
 
 	authEndpoint, err := rsConClient.Config.EndpointLocator.IAMEndpoint()
 	if err != nil {
-		return err
+		return fmt.Errorf("failure locating IAM endpoint: %w", err)
 	}
 	authEndpointPath := fmt.Sprintf("%s%s", authEndpoint, "/identity/token")
 	apiKey := rsConClient.Config.BluemixAPIKey
@@ -1473,7 +1476,7 @@ func resourceIBMCOSBucketCreate(d *schema.ResourceData, meta interface{}) error 
 	_, err = s3Client.CreateBucket(create)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failure creating cos bucket: %w", err)
 	}
 	// Generating a fake id which contains every information about to get the bucket via s3 api
 	bucketID := fmt.Sprintf("%s:%s:%s:meta:%s:%s:%s", strings.Replace(serviceID, "::", "", -1), "bucket", bucketName, apiType, bLocation, endpointType)
