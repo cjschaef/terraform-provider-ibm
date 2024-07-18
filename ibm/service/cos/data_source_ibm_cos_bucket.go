@@ -721,6 +721,8 @@ func dataSourceIBMCosBucketRead(d *schema.ResourceData, meta interface{}) error 
 	d.Set("s3_endpoint_public", apiEndpoint)
 	d.Set("s3_endpoint_private", apiEndpointPrivate)
 	d.Set("s3_endpoint_direct", directApiEndpoint)
+	// Overwrite endpoint based on endpointType with any possible override
+	d.Set(fmt.Sprintf("s3_endpoint_%s", endpointType), apiEndpoint)
 	sess, err := meta.(conns.ClientSession).CosConfigV1API()
 	if err != nil {
 		return err
