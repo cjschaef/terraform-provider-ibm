@@ -811,10 +811,18 @@ func dataSourceIBMCosBucketRead(d *schema.ResourceData, meta interface{}) error 
 	bucketCRN := fmt.Sprintf("%s:%s:%s", strings.Replace(serviceID, "::", "", -1), "bucket", bucketName)
 	d.Set("crn", bucketCRN)
 	d.Set("resource_instance_id", serviceID)
-	apiEndpoint, apiEndpointPrivate, directApiEndpoint = SelectCosApi(bucketLocationConvert(bucketType), bucketRegion, strings.Contains(apiEndpoint, "test"))
-	d.Set("s3_endpoint_public", apiEndpoint)
-	d.Set("s3_endpoint_private", apiEndpointPrivate)
-	d.Set("s3_endpoint_direct", directApiEndpoint)
+
+	testEnv := strings.Contains(apiEndpoint, ".test.")
+	apiEndpointPublic, apiEndpointPrivate, directApiEndpoint := SelectCosApi(bucketLocationConvert(bucketType), bucketRegion, testEnv)
+
+	if testEnv {
+		d.Set(fmt.Sprintf("s3_endpoint_%s", endpointType), apiEndpoint)
+	} else {
+		d.Set("s3_endpoint_public", apiEndpointPublic)
+		d.Set("s3_endpoint_private", apiEndpointPrivate)
+		d.Set("s3_endpoint_direct", directApiEndpoint)
+	}
+
 	sess, err := meta.(conns.ClientSession).CosConfigV1API()
 	if err != nil {
 		return err
